@@ -14,5 +14,8 @@
   "observability": {
     "enabled": true
   },
+  "vars": {
+    "r2BucketUrl": ""
+  },
   "upload_source_maps": true
 }

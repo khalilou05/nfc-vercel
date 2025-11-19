@@ -30,7 +30,6 @@ export async function fetchApi(
     if (refreshRes.ok) {
       return fetchApi(endpoint, config, false);
     }
-    window.history.pushState(null, "", "/");
   }
   return resp;
 }
