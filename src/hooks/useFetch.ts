@@ -34,6 +34,7 @@ export function useFetch<T>(endpoint: `/${string}`) {
             if (!signal.aborted) setData(retriedData);
             return;
           } else {
+            await fetch(`${baseUrl}/logout`);
             router.push("/");
             return;
           }
