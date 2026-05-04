@@ -54,8 +54,8 @@ export function DataTableDemo() {
   const timeoutId = React.useRef<NodeJS.Timeout>(null);
   const params = new URLSearchParams({
     page: currentPage.toString(),
+    q: query,
   });
-  if (query) params.append("q", query);
   const { data, isLoading, isValidating, mutate } = useSWR<Data>(
     `/api/customers?${params.toString()}`,
     fetcher,
