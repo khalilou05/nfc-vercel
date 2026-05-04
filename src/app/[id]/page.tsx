@@ -16,6 +16,17 @@ export const viewport: Viewport = {
   themeColor: "#004f9f",
 };
 
+// export const revalidate = 60;
+
+// export async function generateStaticParams() {
+//   const posts = await fetch("https://api.vercel.app/blog").then((res) =>
+//     res.json(),
+//   );
+//   return posts.map((post) => ({
+//     id: String(post.id),
+//   }));
+// }
+
 export default async function Page({
   params,
 }: {
@@ -77,7 +88,7 @@ export default async function Page({
                   >
                     {socialMedia[key].icon}
                   </Link>
-                )
+                ),
               )}
           </div>
         </div>

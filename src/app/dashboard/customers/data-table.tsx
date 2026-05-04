@@ -24,7 +24,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { useFetch } from "@/hooks/useFetch";
 import Eye from "@/icons/Eye";
 import PEN from "@/icons/PEN";
 import Trash from "@/icons/Trash";
@@ -32,6 +31,7 @@ import { fetchApi } from "@/lib/utils";
 import { MoreHorizontal, Search } from "lucide-react";
 import { useRouter } from "next/navigation";
 import * as React from "react";
+import useSWR from "swr";
 import { Customer } from "../../../types/types";
 
 interface Data {
@@ -39,6 +39,14 @@ interface Data {
   totalPages: number;
   totalCustomers: number;
 }
+
+const fetcher = async (url: `/${string}`) => {
+  const resp = await fetchApi(url);
+  if (!resp.ok) {
+    throw new Error("Failed to load customers");
+  }
+  return resp.json<Data>();
+};
 
 export function DataTableDemo() {
   const [currentPage, setCurrentPage] = React.useState(1);
@@ -48,15 +56,20 @@ export function DataTableDemo() {
     page: currentPage.toString(),
   });
   if (query) params.append("q", query);
-  const { data, isLoading, refetch, setIsLoading } = useFetch<Data>(
-    `/api/customers?${params.toString()}`
+  const { data, isLoading, isValidating, mutate } = useSWR<Data>(
+    `/api/customers?${params.toString()}`,
+    fetcher,
+    {
+      keepPreviousData: true,
+    },
   );
+  const isFetching = isLoading || isValidating;
 
   const [selechAllcheckBox, setSelechAllcheckBox] = React.useState<
     boolean | "indeterminate"
   >(false);
   const [selectedCustomer, setSelectedCustomer] = React.useState<Customer[]>(
-    []
+    [],
   );
   const nextPage = () => {
     setCurrentPage((prv) => (prv === data?.totalPages ? prv : prv + 1));
@@ -69,7 +82,7 @@ export function DataTableDemo() {
     const inList = selectedCustomer.find((i) => i.id === cus.id);
     if (inList) {
       setSelectedCustomer((prv: Customer[]) =>
-        prv.filter((itm) => itm.id !== cus.id)
+        prv.filter((itm) => itm.id !== cus.id),
       );
       return;
     }
@@ -84,12 +97,12 @@ export function DataTableDemo() {
       body: JSON.stringify([cus]),
     });
     if (resp.ok) {
-      refetch();
+      await mutate();
     }
   };
   const deleteAllCustomers = async () => {
     const deleteConfirm = window.confirm(
-      "هل تريد حذف  الزبائن الذي تم تحديدهم"
+      "هل تريد حذف  الزبائن الذي تم تحديدهم",
     );
     if (!deleteConfirm) return;
     const resp = await fetchApi(`/api/customers`, {
@@ -97,7 +110,7 @@ export function DataTableDemo() {
       body: JSON.stringify(selectedCustomer),
     });
     if (resp.ok) {
-      refetch();
+      await mutate();
       setSelectedCustomer([]);
     }
   };
@@ -114,7 +127,6 @@ export function DataTableDemo() {
   };
 
   const handleSearch = (query: string) => {
-    setIsLoading(true);
     setSelectedCustomer([]);
     if (timeoutId.current) clearTimeout(timeoutId.current);
     timeoutId.current = setTimeout(() => {
@@ -158,7 +170,7 @@ export function DataTableDemo() {
             <Search />
           </InputGroupAddon>
         </InputGroup>
-        {selectedCustomer.length ? (
+        {selectedCustomer.length ?
           <Button
             onClick={deleteAllCustomers}
             className="cursor-pointer bg-red-500"
@@ -166,7 +178,7 @@ export function DataTableDemo() {
           >
             حذف
           </Button>
-        ) : null}
+        : null}
       </div>
       <div className="overflow-hidden rounded-md border">
         <Table className="border-collapse table-fixed w-full ">
@@ -186,7 +198,7 @@ export function DataTableDemo() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {isLoading ? (
+            {isFetching ?
               Array.from({ length: 10 }).map((_, i) => (
                 <TableRow
                   className="h-[49px]"
@@ -199,7 +211,7 @@ export function DataTableDemo() {
                   ))}
                 </TableRow>
               ))
-            ) : data?.customers && !data.customers.length ? (
+            : data?.customers && !data.customers.length ?
               <TableRow>
                 <TableCell
                   className="h-3"
@@ -208,8 +220,7 @@ export function DataTableDemo() {
                   لا توجد بيانات
                 </TableCell>
               </TableRow>
-            ) : (
-              data?.customers.map((cus) => (
+            : data?.customers.map((cus) => (
                 <TableRow
                   className="has-checked:bg-grey h-[49px]"
                   key={cus.id}
@@ -217,9 +228,9 @@ export function DataTableDemo() {
                   <TableCell>
                     <Checkbox
                       checked={
-                        selectedCustomer.find((i) => i.id === cus.id)
-                          ? true
-                          : false
+                        selectedCustomer.find((i) => i.id === cus.id) ? true : (
+                          false
+                        )
                       }
                       onCheckedChange={() => handleSelect(cus)}
                     />
@@ -274,7 +285,7 @@ export function DataTableDemo() {
                   </TableCell>
                 </TableRow>
               ))
-            )}
+            }
             <TableRow>
               <TableCell
                 className="text-gray-500"
