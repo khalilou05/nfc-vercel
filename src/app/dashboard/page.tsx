@@ -194,7 +194,7 @@ export default function Page() {
                   />
                 </Label>
               </div>
-              {data.type === "customer" ? (
+              {data.type === "customer" ?
                 <>
                   <Label>مواقع التواصل </Label>
                   <AlertDialog>
@@ -250,6 +250,7 @@ export default function Page() {
                       <Fragment key={key}>
                         <Label htmlFor={key}>{socialMedia[key].label}</Label>
                         <Input
+                          value={key === "whatsapp" ? "https://wa.me/" : ""}
                           name={key}
                           required
                           onChange={handleSocialMedia}
@@ -263,7 +264,7 @@ export default function Page() {
                   <Label
                     htmlFor="cover"
                     className={clsx(
-                      "flex p-4 relative content-center justify-center cursor-pointer rounded-sm w-full h-auto border-2 border-dashed"
+                      "flex p-4 relative content-center justify-center cursor-pointer rounded-sm w-full h-auto border-2 border-dashed",
                     )}
                   >
                     <Input
@@ -279,7 +280,7 @@ export default function Page() {
                         pointerEvents: "none",
                       }}
                     />
-                    {coverImage ? (
+                    {coverImage ?
                       <Image
                         height={200}
                         width={200}
@@ -287,16 +288,14 @@ export default function Page() {
                         style={{ objectFit: "cover" }}
                         alt=""
                       />
-                    ) : (
-                      <IMG className="w-20" />
-                    )}
+                    : <IMG className="w-20" />}
                   </Label>
                   <Label>الصورة الشخصية</Label>
 
                   <Label
                     htmlFor="profile"
                     className={clsx(
-                      "flex p-4 content-center relative justify-center cursor-pointer rounded-sm w-full h-auto border-2 border-dashed"
+                      "flex p-4 content-center relative justify-center cursor-pointer rounded-sm w-full h-auto border-2 border-dashed",
                     )}
                   >
                     <Input
@@ -312,7 +311,7 @@ export default function Page() {
                         pointerEvents: "none",
                       }}
                     />
-                    {userImage ? (
+                    {userImage ?
                       <Image
                         height={200}
                         width={200}
@@ -320,13 +319,10 @@ export default function Page() {
                         style={{ objectFit: "cover" }}
                         alt=""
                       />
-                    ) : (
-                      <User style={{ scale: 2, stroke: "var(--border)" }} />
-                    )}
+                    : <User style={{ scale: 2, stroke: "var(--border)" }} />}
                   </Label>
                 </>
-              ) : (
-                <>
+              : <>
                   <Label htmlFor="absUrl">رابط الصفحة</Label>
                   <Input
                     id="absUrl"
@@ -340,13 +336,15 @@ export default function Page() {
                     value={data.absoluteUrl}
                   />
                 </>
-              )}
+              }
               <div>&nbsp;</div>
               <Button
                 disabled={isLoading}
                 style={{ cursor: "pointer" }}
               >
-                {isLoading ? <Spinner className="size-6" /> : "إضافة"}
+                {isLoading ?
+                  <Spinner className="size-6" />
+                : "إضافة"}
               </Button>
             </form>
           </CardContent>
