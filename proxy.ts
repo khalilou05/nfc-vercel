@@ -8,10 +8,6 @@ export async function proxy(request: NextRequest) {
   const isLoginPage = request.nextUrl.pathname === "/";
 
   if (!secret) {
-    if (isLoginPage) {
-      return NextResponse.next();
-    }
-
     return NextResponse.json(
       { error: "JWT_SECRET is not configured" },
       { status: 500 },
