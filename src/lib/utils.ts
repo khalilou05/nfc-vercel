@@ -23,8 +23,6 @@ export async function fetchApi(
     ...config,
     credentials: "include",
   });
-  if (resp.status === 401) {
-    redirect("/login", "replace");
-  }
+
   return resp;
 }
