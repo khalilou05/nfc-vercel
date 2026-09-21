@@ -14,20 +14,14 @@ export async function proxy(request: NextRequest) {
   }
 
   if (!token) {
-    return NextResponse.json(
-      { error: "Missing bearer token" },
-      { status: 401 },
-    );
+    return NextResponse.redirect(new URL("/login", request.url));
   }
 
   try {
     await jwtVerify(token, new TextEncoder().encode(secret));
     return NextResponse.next();
   } catch {
-    return NextResponse.json(
-      { error: "Invalid or expired token" },
-      { status: 401 },
-    );
+    return NextResponse.redirect(new URL("/login", request.url));
   }
 }
 
