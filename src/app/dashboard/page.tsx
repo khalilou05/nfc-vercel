@@ -19,7 +19,8 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { User } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
+import { FileText, User } from "lucide-react";
 
 import clsx from "clsx";
 import { socialMedia } from "../../socialMedia";
@@ -38,16 +39,86 @@ export default function Page() {
     type: "customer",
     absoluteUrl: "",
     email: "",
+    bio: "",
     socialMedia: {},
   });
   const [userImage, setUserImage] = useState<File | null>(null);
   const [coverImage, setCoverImage] = useState<File | null>(null);
+  const [pdfFile, setPdfFile] = useState<File | null>(null);
+  const [pdfPreviewUrl, setPdfPreviewUrl] = useState("");
   const [userPerviewImage, setUserPerviewImage] = useState("");
   const [coverPerviewImage, setCoverPerviewImage] = useState("");
 
   const [isLoading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
   const router = useRouter();
+  const hasUnsavedChanges = Boolean(
+    data.fullName ||
+    data.phoneNumber ||
+    data.email ||
+    data.bio ||
+    data.absoluteUrl ||
+    data.type !== "customer" ||
+    Object.keys(data.socialMedia ?? {}).length ||
+    userImage ||
+    coverImage ||
+    pdfFile,
+  );
+
+  useEffect(() => {
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      if (!hasUnsavedChanges || isLoading) return;
+      event.preventDefault();
+      event.returnValue = "";
+    };
+
+    const handleNavigation = (event: MouseEvent) => {
+      if (
+        !hasUnsavedChanges ||
+        isLoading ||
+        event.defaultPrevented ||
+        event.button !== 0 ||
+        event.metaKey ||
+        event.ctrlKey ||
+        event.shiftKey ||
+        event.altKey ||
+        !(event.target instanceof Element)
+      ) {
+        return;
+      }
+
+      const link = event.target.closest("a[href]");
+      if (
+        !(link instanceof HTMLAnchorElement) ||
+        link.target === "_blank" ||
+        link.hasAttribute("download")
+      ) {
+        return;
+      }
+
+      const destination = new URL(link.href, window.location.href);
+      if (
+        destination.origin !== window.location.origin ||
+        destination.href === window.location.href
+      ) {
+        return;
+      }
+
+      if (!window.confirm("لديك تغييرات غير محفوظة. هل تريد مغادرة الصفحة؟")) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+      }
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    window.addEventListener("click", handleNavigation, true);
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+      window.removeEventListener("click", handleNavigation, true);
+    };
+  }, [hasUnsavedChanges, isLoading]);
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setData((prv) => ({ ...prv, [e.target.name]: e.target.value }));
   };
@@ -61,6 +132,7 @@ export default function Page() {
     }));
   };
   const handleSubmit = async () => {
+    setError("");
     try {
       setLoading(true);
       const formdata = new FormData();
@@ -73,20 +145,25 @@ export default function Page() {
         formdata.append("profileImg", userImage);
         formdata.append("coverImg", coverImage);
       }
+      if (pdfFile) formdata.append("pdf", pdfFile);
 
       const resp = await fetchApi(`/api/customers`, {
         method: "POST",
         body: formdata,
       });
+      if (!resp.ok) {
+        const result = (await resp.json().catch(() => null)) as {
+          error?: string;
+        } | null;
+        setError(result?.error ?? "تعذر إضافة الزبون");
+        return;
+      }
       const { userId } = await resp.json<{ userId: number }>();
 
-      if (resp.status === 201) {
-        setTimeout(() => {
-          router.push(`/dashboard/customers/${userId}`);
-        }, 1000);
-      }
-    } catch (error) {
-      console.log(error);
+      router.push(`/dashboard/customers/${userId}`);
+    } catch {
+      setError("تعذر الاتصال بالخادم. حاول مجددًا.");
+    } finally {
       setLoading(false);
     }
   };
@@ -110,11 +187,12 @@ export default function Page() {
       setData((prv) => ({ ...prv, socialMedia: newobj }));
       return;
     }
+    const initialValue = key === "whatsapp" ? "https://wa.me/" : "";
     setData((prv) => ({
       ...prv,
       socialMedia: {
         ...(prv.socialMedia as Record<string, string>),
-        [key]: "",
+        [key]: initialValue,
       },
     }));
   };
@@ -133,6 +211,16 @@ export default function Page() {
       if (coverPerviewImage) URL.revokeObjectURL(coverPerviewImage);
     };
   }, [coverPerviewImage]);
+  useEffect(() => {
+    if (!pdfFile) {
+      setPdfPreviewUrl("");
+      return;
+    }
+
+    const previewUrl = URL.createObjectURL(pdfFile);
+    setPdfPreviewUrl(previewUrl);
+    return () => URL.revokeObjectURL(previewUrl);
+  }, [pdfFile]);
 
   return (
     <div className="flex w-full justify-center pt-10 pb-10">
@@ -166,9 +254,21 @@ export default function Page() {
               />
               <Label htmlFor="email">البريد الإلكتروني</Label>
               <Input
+                id="email"
                 onChange={handleChange}
+                value={data.email}
                 required
                 name="email"
+              />
+              <Label htmlFor="bio">نبذة تعريفية</Label>
+              <Textarea
+                id="bio"
+                name="bio"
+                value={data.bio ?? ""}
+                onChange={(e) =>
+                  setData((prv) => ({ ...prv, bio: e.target.value }))
+                }
+                rows={4}
               />
               <div className="flex justify-between gap-3">
                 <Label
@@ -212,28 +312,33 @@ export default function Page() {
                           إختيار مواقع التواصل الإجتماعي
                         </AlertDialogTitle>
                       </AlertDialogHeader>
-                      <div className="flex flex-col gap-2 p-2 w-full flex-1 overflow-y-auto">
+                      <div className="grid grid-cols-4 content-start gap-2 p-2 w-full flex-1 overflow-y-auto">
                         {Object.keys(socialMedia).map((key) => (
-                          <Label
+                          <button
                             key={key}
-                            htmlFor={socialMedia[key].label}
-                            className="flex px-2  cursor-pointer rounded justify-between border-1 border-grey has-[:where([data-state=checked])]:outline-1
-      has-[:where([data-state=checked])]:outline-black"
-                          >
-                            <div className="flex gap-2 items-center ">
-                              {socialMedia[key].icon}
-                              {key.toUpperCase()}
-                            </div>
-
-                            <Checkbox
-                              onCheckedChange={() => appendSocialMedia(key)}
-                              checked={
+                            type="button"
+                            aria-pressed={
+                              key in
+                              (data.socialMedia as Record<string, string>)
+                            }
+                            onClick={() => appendSocialMedia(key)}
+                            className={clsx(
+                              "flex min-w-0 flex-col items-center gap-2 rounded border-2 p-2 text-center cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                              (
                                 key in
-                                (data.socialMedia as Record<string, string>)
-                              }
-                              id={socialMedia[key].label}
-                            />
-                          </Label>
+                                  (data.socialMedia as Record<string, string>)
+                              ) ?
+                                "border-primary"
+                              : "border-grey",
+                            )}
+                          >
+                            <div className="flex min-w-0 flex-col items-center gap-1">
+                              {socialMedia[key].icon}
+                              <span className="break-all text-xs leading-tight">
+                                {key.toUpperCase()}
+                              </span>
+                            </div>
+                          </button>
                         ))}
                       </div>
 
@@ -250,7 +355,10 @@ export default function Page() {
                       <Fragment key={key}>
                         <Label htmlFor={key}>{socialMedia[key].label}</Label>
                         <Input
-                          value={key === "whatsapp" ? "https://wa.me/" : ""}
+                          value={
+                            (data.socialMedia as Record<string, string>)[key] ??
+                            ""
+                          }
                           name={key}
                           required
                           onChange={handleSocialMedia}
@@ -258,6 +366,35 @@ export default function Page() {
                         />
                       </Fragment>
                     ))}
+
+                  <Label>ملف PDF</Label>
+                  <Label
+                    htmlFor="pdf"
+                    className="relative flex h-auto w-full cursor-pointer justify-center rounded-sm border-2 border-dashed p-4"
+                  >
+                    <Input
+                      id="pdf"
+                      type="file"
+                      accept="application/pdf,.pdf"
+                      onChange={(event) =>
+                        setPdfFile(event.target.files?.[0] ?? null)
+                      }
+                      className="pointer-events-none absolute opacity-0"
+                    />
+                    <div className="flex min-w-0 flex-col items-center gap-2 text-center">
+                      <FileText className="size-10 text-muted-foreground" />
+                      <span className="break-all text-sm">
+                        {pdfFile?.name ?? "اضغط لاختيار ملف PDF"}
+                      </span>
+                    </div>
+                  </Label>
+                  {pdfPreviewUrl && (
+                    <iframe
+                      title="معاينة ملف PDF"
+                      src={pdfPreviewUrl}
+                      className="h-[480px] w-full rounded-md border"
+                    />
+                  )}
 
                   <Label>صورة الغلاف</Label>
 
@@ -346,6 +483,14 @@ export default function Page() {
                   <Spinner className="size-6" />
                 : "إضافة"}
               </Button>
+              {error && (
+                <p
+                  role="alert"
+                  className="text-center text-sm text-red-600"
+                >
+                  {error}
+                </p>
+              )}
             </form>
           </CardContent>
         </Card>

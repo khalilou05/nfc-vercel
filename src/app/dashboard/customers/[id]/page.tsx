@@ -16,6 +16,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { fetchApi } from "@/lib/utils";
 import type { Customer } from "@/types/types";
+import { Download } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { QRCodeSVG } from "qrcode.react";
 import { Fragment, use, useEffect, useRef, useState } from "react";
 import { socialMedia } from "../../../../socialMedia";
@@ -25,6 +27,7 @@ export default function Page({ params }: { params: Promise<{ id: number }> }) {
 
   const { id } = use(params);
   const qrRef = useRef<SVGSVGElement>(null);
+  const router = useRouter();
 
   const downloadQRCode = () => {
     // Get the root QR SVG (not the logo)
@@ -67,17 +70,26 @@ export default function Page({ params }: { params: Promise<{ id: number }> }) {
     const getUser = async () => {
       try {
         const resp = await fetchApi(`/api/customers/${id}`);
+        if (resp.status === 404) {
+          router.replace("/dashboard/customers");
+          return;
+        }
+        if (!resp.ok) throw new Error("Failed to load customer");
         const data = await resp.json<Customer>();
+        const socialMedia =
+          typeof data.socialMedia === "string" ?
+            JSON.parse(data.socialMedia)
+          : (data.socialMedia ?? {});
         setCustomer({
           ...data,
-          socialMedia: { ...JSON.parse(data.socialMedia as string) },
+          socialMedia,
         });
       } catch (e) {
         console.log(e);
       }
     };
     getUser();
-  }, [id]);
+  }, [id, router]);
 
   useEffect(() => {
     if (!qrRef.current) return;
@@ -141,8 +153,36 @@ export default function Page({ params }: { params: Promise<{ id: number }> }) {
               id="email"
               value={customer?.email ?? ""}
             />
+            {customer?.bio && (
+              <>
+                <p
+                  id="bio-label"
+                  className="text-sm font-medium"
+                >
+                  نبذة تعريفية
+                </p>
+                <div
+                  id="bio"
+                  aria-labelledby="bio-label"
+                  className="min-h-24 whitespace-pre-wrap rounded-md border bg-muted/30 px-3 py-2 text-sm"
+                >
+                  {customer.bio}
+                </div>
+              </>
+            )}
+            {customer?.pdf && (
+              <Button asChild>
+                <a
+                  href={`https://media.twenty-print.com/${customer.pdf}`}
+                  download
+                >
+                  <Download />
+                  تحميل ملف PDF
+                </a>
+              </Button>
+            )}
 
-            {customer?.type === "customer" ? (
+            {customer?.type === "customer" ?
               <>
                 {customer?.socialMedia &&
                   Object.entries(customer?.socialMedia).map(([key, value]) => (
@@ -156,8 +196,7 @@ export default function Page({ params }: { params: Promise<{ id: number }> }) {
                     </Fragment>
                   ))}
               </>
-            ) : (
-              <>
+            : <>
                 <Label htmlFor="extUrl">الرابط</Label>
                 <Input
                   id="extUrl"
@@ -166,7 +205,7 @@ export default function Page({ params }: { params: Promise<{ id: number }> }) {
                   value={customer?.absoluteUrl ?? ""}
                 />
               </>
-            )}
+            }
           </div>
           <div>&nbsp;</div>
           <div className="flex flex-col gap-3">

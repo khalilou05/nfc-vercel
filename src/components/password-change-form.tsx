@@ -37,6 +37,8 @@ export function PasswordChangeForm({
   };
 
   const handleSubmit = async () => {
+    setError("");
+    setSuccess("");
     if (userData.newpassword !== userData.confirmpassword) {
       setError("كلمة المرور غير متطابقة");
       return;
@@ -45,20 +47,22 @@ export function PasswordChangeForm({
       setLoading(true);
       const resp = await fetchApi("/api/resetpassword", {
         method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(userData),
       });
-      if (resp.status === 200) {
+      if (resp.ok) {
         setSuccess("تم تغير كلمة المرور بنجاح");
         return;
       }
 
-      setError((await resp.json<{ error: string }>()).error);
-    } catch (error) {
-      console.log(error);
+      const result = (await resp.json().catch(() => null)) as {
+        error?: string;
+      } | null;
+      setError(result?.error ?? "تعذر تحديث كلمة المرور");
+    } catch {
+      setError("تعذر الاتصال بالخادم. حاول مجددًا.");
     } finally {
-      setTimeout(() => {
-        setLoading(false);
-      }, 1000);
+      setLoading(false);
     }
   };
 
@@ -87,6 +91,7 @@ export function PasswordChangeForm({
                   value={userData.email}
                   id="email"
                   name="email"
+                  type="email"
                   required
                 />
               </div>
@@ -98,6 +103,7 @@ export function PasswordChangeForm({
                   id="newpassword"
                   name="newpassword"
                   type="password"
+                  minLength={8}
                   required
                 />
               </div>
@@ -111,6 +117,7 @@ export function PasswordChangeForm({
                   name="confirmpassword"
                   id="confirmpassword"
                   type="password"
+                  minLength={8}
                   required
                 />
               </div>
@@ -121,7 +128,9 @@ export function PasswordChangeForm({
                   type="submit"
                   className="w-full"
                 >
-                  {isLoading ? <Spinner className="size-6" /> : "حفض"}
+                  {isLoading ?
+                    <Spinner className="size-6" />
+                  : "حفض"}
                 </Button>
                 {error && (
                   <span className="text-red-500 text-center">{error}</span>

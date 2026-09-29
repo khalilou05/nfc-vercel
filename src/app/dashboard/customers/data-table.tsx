@@ -56,7 +56,7 @@ export function DataTableDemo() {
     page: currentPage.toString(),
     q: query,
   });
-  const { data, isLoading, isValidating, mutate } = useSWR<Data>(
+  const { data, error, isLoading, isValidating, mutate } = useSWR<Data>(
     `/api/customers?${params.toString()}`,
     fetcher,
     {
@@ -94,7 +94,7 @@ export function DataTableDemo() {
     if (!deleteConfirm) return;
     const resp = await fetchApi(`/api/customers`, {
       method: "DELETE",
-      body: JSON.stringify([cus]),
+      body: JSON.stringify(cus.id ? [cus.id] : []),
     });
     if (resp.ok) {
       await mutate();
@@ -107,7 +107,11 @@ export function DataTableDemo() {
     if (!deleteConfirm) return;
     const resp = await fetchApi(`/api/customers`, {
       method: "DELETE",
-      body: JSON.stringify(selectedCustomer),
+      body: JSON.stringify(
+        selectedCustomer.flatMap((customer) =>
+          customer.id ? [customer.id] : [],
+        ),
+      ),
     });
     if (resp.ok) {
       await mutate();
@@ -130,11 +134,18 @@ export function DataTableDemo() {
     setSelectedCustomer([]);
     if (timeoutId.current) clearTimeout(timeoutId.current);
     timeoutId.current = setTimeout(() => {
+      setCurrentPage(1);
       setQuery(query);
     }, 200);
   };
 
   const router = useRouter();
+
+  React.useEffect(() => {
+    if (!isFetching && data && currentPage > data.totalPages) {
+      setCurrentPage(data.totalPages);
+    }
+  }, [currentPage, data, isFetching]);
 
   React.useEffect(() => {
     if (
@@ -198,7 +209,16 @@ export function DataTableDemo() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {isFetching ?
+            {error && !data ?
+              <TableRow>
+                <TableCell
+                  className="h-16 text-center text-destructive"
+                  colSpan={6}
+                >
+                  تعذر تحميل قائمة الزبائن
+                </TableCell>
+              </TableRow>
+            : isFetching ?
               Array.from({ length: 10 }).map((_, i) => (
                 <TableRow
                   className="h-[49px]"
@@ -236,7 +256,9 @@ export function DataTableDemo() {
                     />
                   </TableCell>
                   <TableCell className="truncate">{cus.fullName}</TableCell>
-                  <TableCell className="truncate">{cus.phoneNumber}</TableCell>
+                  <TableCell dir="ltr" className="truncate text-left">
+                    {cus.phoneNumber}
+                  </TableCell>
                   <TableCell className="truncate">{cus.email}</TableCell>
                   <TableCell className="truncate">{cus.createdAt}</TableCell>
                   <TableCell>

@@ -13,6 +13,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { FileText } from "lucide-react";
 
 import clsx from "clsx";
 
@@ -30,18 +32,20 @@ export default function Page() {
 
   const [userImage, setUserImage] = useState<File | null>(null);
   const [coverImage, setCoverImage] = useState<File | null>(null);
+  const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [userPerviewImage, setUserPerviewImage] = useState("");
   const [coverPerviewImage, setCoverPerviewImage] = useState("");
   const { id } = useParams<{ id: string }>();
   const [loading, setLoading] = useState(true);
   const [saveloading, setSaveLoading] = useState(false);
+  const [error, setError] = useState("");
   const router = useRouter();
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setCustomer((prv) => ({ ...prv, [e.target.name]: e.target.value }));
   };
   const handleSocialMedia = (
     e: React.ChangeEvent<HTMLInputElement>,
-    key: string
+    key: string,
   ) => {
     setCustomer((prv) => ({
       ...prv,
@@ -52,14 +56,17 @@ export default function Page() {
     }));
   };
   const handleSubmit = async () => {
+    setError("");
     try {
       setSaveLoading(true);
       const formdata = new FormData();
       const { socialMedia, ...rest } = customer;
+      delete rest.pdf;
       for (const [key, value] of Object.entries(rest)) {
         formdata.append(key, value as string);
       }
       formdata.append("socialMedia", JSON.stringify(socialMedia));
+      if (pdfFile) formdata.append("pdf", pdfFile);
 
       if (userImage || coverImage) {
         formdata.append("newprofileImg", userImage ?? "");
@@ -71,11 +78,17 @@ export default function Page() {
         body: formdata,
       });
 
-      if (resp.status === 201) {
+      if (resp.ok && resp.status === 201) {
         router.push(`/dashboard/customers`);
+        return;
       }
+      const result = (await resp.json().catch(() => null)) as {
+        error?: string;
+      } | null;
+      setError(result?.error ?? "تعذر حفظ التغييرات");
     } catch (error) {
-      console.log(error);
+      setError("تعذر الاتصال بالخادم. حاول مجددًا.");
+    } finally {
       setSaveLoading(false);
     }
   };
@@ -112,20 +125,30 @@ export default function Page() {
     const getUser = async () => {
       try {
         const resp = await fetchApi(`/api/customers/${id}`);
+        if (resp.status === 404) {
+          router.replace("/dashboard/customers");
+          return;
+        }
+        if (!resp.ok) throw new Error("Failed to load customer");
         const data = await resp.json<Customer>();
+        const socialMedia =
+          typeof data.socialMedia === "string" ?
+            JSON.parse(data.socialMedia)
+          : (data.socialMedia ?? {});
 
         setCustomer({
           ...data,
-          socialMedia: JSON.parse(data.socialMedia as string),
+          socialMedia,
         });
       } catch (e) {
         console.log(e);
+        setError("تعذر تحميل معلومات الزبون");
       } finally {
         setLoading(false);
       }
     };
     getUser();
-  }, [id]);
+  }, [id, router]);
 
   useEffect(() => {
     return () => {
@@ -146,7 +169,7 @@ export default function Page() {
             <CardTitle>تعديل معلومات الزبون</CardTitle>
           </CardHeader>
           <CardContent>
-            {loading ? (
+            {loading ?
               <div className="flex flex-col gap-6">
                 {Array.from({ length: 7 }).map((_, i) => (
                   <Skeleton
@@ -155,8 +178,7 @@ export default function Page() {
                   />
                 ))}
               </div>
-            ) : (
-              <form
+            : <form
                 onSubmit={(e) => {
                   e.preventDefault();
                   handleSubmit();
@@ -187,8 +209,21 @@ export default function Page() {
                   autoComplete="email"
                   name="email"
                 />
+                <Label htmlFor="bio">نبذة تعريفية</Label>
+                <Textarea
+                  id="bio"
+                  name="bio"
+                  value={customer.bio ?? ""}
+                  onChange={(event) =>
+                    setCustomer((previous) => ({
+                      ...previous,
+                      bio: event.target.value,
+                    }))
+                  }
+                  rows={4}
+                />
 
-                {customer.type === "customer" ? (
+                {customer.type === "customer" ?
                   <>
                     <Label>مواقع التواصل </Label>
                     <AlertDialog>
@@ -254,15 +289,39 @@ export default function Page() {
                               value={value}
                             />
                           </Fragment>
-                        )
+                        ),
                       )}
+
+                    <Label>ملف PDF</Label>
+                    <Label
+                      htmlFor="pdf"
+                      className="relative flex h-auto w-full cursor-pointer justify-center rounded-sm border-2 border-dashed p-4"
+                    >
+                      <Input
+                        id="pdf"
+                        type="file"
+                        accept="application/pdf,.pdf"
+                        onChange={(event) =>
+                          setPdfFile(event.target.files?.[0] ?? null)
+                        }
+                        className="pointer-events-none absolute opacity-0"
+                      />
+                      <div className="flex min-w-0 flex-col items-center gap-2 text-center">
+                        <FileText className="size-10 text-muted-foreground" />
+                        <span className="break-all text-sm">
+                          {pdfFile?.name ??
+                            customer.pdf?.split("/").pop() ??
+                            "اضغط لاختيار ملف PDF"}
+                        </span>
+                      </div>
+                    </Label>
 
                     <Label>صورة الغلاف</Label>
 
                     <Label
                       htmlFor="cover"
                       className={clsx(
-                        "flex p-4 relative content-center justify-center cursor-pointer rounded-sm w-full h-auto border-2 border-dashed"
+                        "flex p-4 relative content-center justify-center cursor-pointer rounded-sm w-full h-auto border-2 border-dashed",
                       )}
                     >
                       <Input
@@ -277,7 +336,7 @@ export default function Page() {
                           pointerEvents: "none",
                         }}
                       />
-                      {coverImage ? (
+                      {coverImage ?
                         <Image
                           height={200}
                           width={200}
@@ -285,22 +344,21 @@ export default function Page() {
                           style={{ objectFit: "cover" }}
                           alt=""
                         />
-                      ) : (
-                        <Image
+                      : <Image
                           height={200}
                           width={200}
                           src={`https://media.twenty-print.com/${customer.coverImg}`}
                           style={{ objectFit: "cover" }}
                           alt=""
                         />
-                      )}
+                      }
                     </Label>
                     <Label>الصورة الشخصية</Label>
 
                     <Label
                       htmlFor="profile"
                       className={clsx(
-                        "flex p-4 content-center relative justify-center cursor-pointer rounded-sm w-full h-auto border-2 border-dashed"
+                        "flex p-4 content-center relative justify-center cursor-pointer rounded-sm w-full h-auto border-2 border-dashed",
                       )}
                     >
                       <Input
@@ -315,7 +373,7 @@ export default function Page() {
                           pointerEvents: "none",
                         }}
                       />
-                      {userImage ? (
+                      {userImage ?
                         <Image
                           height={200}
                           width={200}
@@ -323,19 +381,17 @@ export default function Page() {
                           style={{ objectFit: "cover" }}
                           alt=""
                         />
-                      ) : (
-                        <Image
+                      : <Image
                           height={200}
                           width={200}
                           src={`https://media.twenty-print.com/${customer.profileImg}`}
                           style={{ objectFit: "cover" }}
                           alt=""
                         />
-                      )}
+                      }
                     </Label>
                   </>
-                ) : (
-                  <>
+                : <>
                     <Label htmlFor="extUrl">الرابط</Label>
                     <Input
                       id="extUrl"
@@ -344,7 +400,7 @@ export default function Page() {
                       value={customer.absoluteUrl ?? ""}
                     />
                   </>
-                )}
+                }
 
                 <div></div>
                 <Button
@@ -353,8 +409,16 @@ export default function Page() {
                 >
                   حفض
                 </Button>
+                {error && (
+                  <p
+                    role="alert"
+                    className="text-center text-sm text-red-600"
+                  >
+                    {error}
+                  </p>
+                )}
               </form>
-            )}
+            }
           </CardContent>
         </Card>
       </div>

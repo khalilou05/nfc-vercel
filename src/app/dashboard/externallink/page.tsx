@@ -81,14 +81,13 @@ export default function Page() {
       if (!qrRef.current) return;
 
       const img = qrRef.current.querySelector("image") as SVGImageElement;
+      if (!img) return;
 
       const width = img.getAttribute("width");
       const height = img.getAttribute("height");
 
       const x = img.getAttribute("x");
       const y = img.getAttribute("y");
-
-      console.log(width, height, x, y);
 
       img.remove();
       const parser = new DOMParser();
@@ -122,7 +121,7 @@ export default function Page() {
     return () => {
       clearTimeout(timeoutId);
     };
-  });
+  }, [link, loading]);
 
   return (
     <div className="flex flex-col gap-3 p-4 sm:flex-row">
@@ -177,10 +176,9 @@ export default function Page() {
         </CardContent>
       </Card>
       <Card className="w-fit p-3 flex">
-        {loading ? (
+        {loading ?
           <Spinner className="size-6 flex-1" />
-        ) : (
-          <QRCodeSVG
+        : <QRCodeSVG
             level="H"
             value={link}
             ref={qrRef}
@@ -191,7 +189,7 @@ export default function Page() {
               excavate: true,
             }}
           />
-        )}
+        }
 
         <Button
           onClick={downloadQRCode}

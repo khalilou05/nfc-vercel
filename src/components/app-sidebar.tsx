@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/sidebar";
 import { fetchApi } from "@/lib/utils";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 
 // Menu items.
 const items = [
@@ -33,10 +33,11 @@ const items = [
 export function AppSidebar() {
   const { isMobile, toggleSidebar } = useSidebar();
   const path = usePathname();
-  const router = useRouter();
   const logOut = async () => {
-    await fetchApi(`/logout`);
-    router.push("/");
+    const response = await fetchApi(`/logout`, { method: "POST" });
+    if (response.ok) {
+      window.location.replace("/");
+    }
   };
   return (
     <Sidebar
@@ -55,9 +56,9 @@ export function AppSidebar() {
                   <SidebarMenuItem key={item.title}>
                     <SidebarMenuButton
                       className={
-                        item.url === path
-                          ? "bg-stone-200 hover:bg-stone-200"
-                          : ""
+                        item.url === path ?
+                          "bg-stone-200 hover:bg-stone-200"
+                        : ""
                       }
                       asChild
                     >
@@ -79,9 +80,9 @@ export function AppSidebar() {
                 <SidebarMenuItem>
                   <SidebarMenuButton
                     className={
-                      path === "/dashboard/settings"
-                        ? "bg-stone-200 hover:bg-stone-200"
-                        : ""
+                      path === "/dashboard/settings" ?
+                        "bg-stone-200 hover:bg-stone-200"
+                      : ""
                     }
                     asChild
                   >

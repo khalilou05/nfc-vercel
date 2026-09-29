@@ -9,7 +9,9 @@ import type { Viewport } from "next";
 import Image from "next/image";
 import Link from "next/link";
 
-import { redirect } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { Download } from "lucide-react";
+import { notFound, redirect } from "next/navigation";
 import { socialMedia } from "../../socialMedia";
 
 export const viewport: Viewport = {
@@ -27,6 +29,8 @@ export const viewport: Viewport = {
 //   }));
 // }
 
+export const revalidate = 60;
+
 export default async function Page({
   params,
 }: {
@@ -34,11 +38,26 @@ export default async function Page({
 }) {
   const { id } = await params;
   const resp = await fetchApi(`/customers/${id}`);
+  if (resp.status === 404) notFound();
+  if (!resp.ok) throw new Error("Failed to load customer profile");
 
   const customer = await resp.json<Customer & { redirect: string }>();
 
   if (customer.redirect) {
     redirect(customer.redirect);
+  }
+
+  let socialLinks: Record<string, string> = {};
+  try {
+    const parsedSocialMedia =
+      typeof customer.socialMedia === "string" ?
+        JSON.parse(customer.socialMedia)
+      : customer.socialMedia;
+    if (parsedSocialMedia && typeof parsedSocialMedia === "object") {
+      socialLinks = parsedSocialMedia as Record<string, string>;
+    }
+  } catch {
+    socialLinks = {};
   }
 
   return (
@@ -67,7 +86,28 @@ export default async function Page({
           >
             {customer.fullName}
           </h1>
-          <SaveContact customer={customer} />
+          <div className="flex flex-wrap items-center justify-center gap-3">
+            <SaveContact customer={customer} />
+            {customer.pdf && (
+              <Button
+                asChild
+                className="bg-black text-white hover:bg-black/85"
+              >
+                <a
+                  href={`https://media.twenty-print.com/${customer.pdf}`}
+                  download
+                >
+                  <Download />
+                  تحميل ملف PDF
+                </a>
+              </Button>
+            )}
+          </div>
+          {customer.bio && (
+            <p className="max-w-[80%] whitespace-pre-wrap text-center text-base text-black">
+              {customer.bio}
+            </p>
+          )}
         </div>
 
         <div className="flex items-center flex-col">
@@ -78,18 +118,31 @@ export default async function Page({
             <Link href={`mailto:${customer.email}`}>
               <Gmail />
             </Link>
-            {customer.socialMedia &&
-              Object.entries(JSON.parse(customer.socialMedia as string)).map(
-                ([key, value]) => (
-                  <Link
-                    href={value as string}
-                    key={key}
-                    target="_blank"
-                  >
-                    {socialMedia[key].icon}
-                  </Link>
-                ),
-              )}
+            {Object.entries(socialLinks).map(([key, value]) => {
+              const platform = socialMedia[key];
+              if (!platform || typeof value !== "string") return null;
+
+              let url: URL;
+              try {
+                url = new URL(value);
+              } catch {
+                return null;
+              }
+              if (url.protocol !== "https:" && url.protocol !== "http:") {
+                return null;
+              }
+
+              return (
+                <Link
+                  href={url.toString()}
+                  key={key}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  {platform.icon}
+                </Link>
+              );
+            })}
           </div>
         </div>
         <div className="mt-auto flex justify-center">

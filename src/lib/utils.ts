@@ -10,7 +10,6 @@ export function cn(...inputs: ClassValue[]) {
 export async function fetchApi(
   endpoint: `/${string}`,
   config: RequestInit = {},
-  retry = true,
 ) {
   const baseUrl = `${
     process.env.NODE_ENV === "development" ?

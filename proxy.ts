@@ -22,14 +22,18 @@ export async function proxy(request: NextRequest) {
 
   try {
     await jwtVerify(token, new TextEncoder().encode(secret));
-    return isLoginPage ?
-        NextResponse.redirect(new URL("/dashboard", request.url))
-      : NextResponse.next();
   } catch {
-    return isLoginPage ?
+    const response =
+      isLoginPage ?
         NextResponse.next()
       : NextResponse.redirect(new URL("/", request.url));
+    response.cookies.delete("token");
+    return response;
   }
+
+  return isLoginPage ?
+      NextResponse.redirect(new URL("/dashboard", request.url))
+    : NextResponse.next();
 }
 
 export const config = {

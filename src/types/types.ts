@@ -3,6 +3,8 @@ export interface Customer {
   fullName: string;
   phoneNumber: string;
   email: string;
+  bio?: string;
+  pdf?: string;
   type: "customer" | "page";
   absoluteUrl?: string;
   coverImg?: string;
