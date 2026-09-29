@@ -5,6 +5,9 @@ const nextConfig: NextConfig = {
   // images: {
   //   remotePatterns: [new URL("https://media.twenty-print.com/**")],
   // },
+  compiler: {
+    removeConsole: process.env.NODE_ENV === "production",
+  },
   images: {
     remotePatterns: [
       {
